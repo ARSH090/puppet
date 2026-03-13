@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: bajaj-puppeteer
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: FB_PAGE_ACCESS_TOKEN
+        sync: false
+      - key: PORT
+        value: 3001

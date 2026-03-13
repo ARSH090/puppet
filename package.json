@@ -1,0 +1,22 @@
+{
+    "name": "bajaj-puppeteer-service",
+    "version": "1.0.0",
+    "description": "Puppeteer automation service for Bajaj EMI Card bot",
+    "main": "server.js",
+    "engines": {
+        "node": "18.x"
+    },
+    "scripts": {
+        "start": "node server.js",
+        "dev": "node server.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "puppeteer": "^21.0.0",
+        "puppeteer-extra": "^3.3.6",
+        "puppeteer-extra-plugin-stealth": "^2.11.2",
+        "@supabase/supabase-js": "^2.38.0",
+        "cors": "^2.8.5",
+        "axios": "^1.6.0"
+    }
+}
