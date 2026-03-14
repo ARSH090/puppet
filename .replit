@@ -1,0 +1,9 @@
+run = "node server.js"
+entrypoint = "server.js"
+
+[nix]
+channel = "stable-23_11"
+
+[env]
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
