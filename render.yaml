@@ -1,15 +1,13 @@
 services:
   - type: web
-    name: bajaj-puppeteer
-    env: node
-    buildCommand: npm install
-    startCommand: node server.js
+    name: bajaj-automation
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
     envVars:
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_KEY
-        sync: false
-      - key: FB_PAGE_ACCESS_TOKEN
-        sync: false
       - key: PORT
-        value: 3001
+        value: 10000
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /usr/bin/google-chrome-stable
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: true

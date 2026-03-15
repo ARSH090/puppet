@@ -4,6 +4,7 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
+const fs = require('fs');
 
 puppeteer.use(StealthPlugin());
 
@@ -156,6 +157,20 @@ async function typeDigitByDigit(page, selector, text) {
     }
 }
 
+function findChromeBinary() {
+    const paths = [
+        process.env.PUPPETEER_EXECUTABLE_PATH,
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium'
+    ];
+    for (const p of paths) {
+        if (p && fs.existsSync(p)) return p;
+    }
+    return null;
+}
+
 // -----------------------------------------------------------------------------
 // AUTOMATION LOGIC
 // -----------------------------------------------------------------------------
@@ -194,7 +209,7 @@ async function runAutomationFlow(params) {
         // Launch Browser
         browser = await puppeteer.launch({
             headless: 'new', // use new headless mode
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
+            executablePath: findChromeBinary(),
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -202,7 +217,8 @@ async function runAutomationFlow(params) {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process'
+                '--single-process',
+                '--disable-extensions'
             ]
         });
 
@@ -460,7 +476,14 @@ async function runAutomationFlow(params) {
 // -----------------------------------------------------------------------------
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', activeSessions: activeSessionsCount, timestamp: new Date().toISOString() });
+    const chromePath = findChromeBinary();
+    res.json({ 
+        status: 'ok', 
+        chromeFound: !!chromePath,
+        chromePath: chromePath,
+        activeSessions: activeSessionsCount, 
+        timestamp: new Date().toISOString() 
+    });
 });
 
 app.post('/automate/start', (req, res) => {
