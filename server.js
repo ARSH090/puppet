@@ -18,6 +18,9 @@ const PORT = process.env.PORT || 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const FB_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
+const PROXY_SERVER = process.env.PROXY_SERVER;
+const PROXY_USER = process.env.PROXY_USER;
+const PROXY_PASS = process.env.PROXY_PASS;
 
 // Initialize Supabase
 let supabase;
@@ -249,22 +252,37 @@ async function runAutomationFlow(params) {
         await updateLead(messengerId, { status: 'processing', process_state: 'automation_started' });
 
         // Launch Browser
+        const launchArgs = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-extensions'
+        ];
+
+        if (PROXY_SERVER) {
+            launchArgs.push(`--proxy-server=${PROXY_SERVER}`);
+        }
+
         browser = await puppeteer.launch({
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
             headless: 'new',
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-extensions'
-            ]
+            args: launchArgs
         });
 
         const page = await browser.newPage();
+
+        if (PROXY_SERVER && PROXY_USER && PROXY_PASS) {
+            await page.authenticate({
+                username: PROXY_USER,
+                password: PROXY_PASS
+            });
+            console.log("Proxy Authentication configured.");
+        }
+
         await page.setViewport({ width: 390, height: 844 });
         // Set realistic user agent
         await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1');
@@ -272,10 +290,10 @@ async function runAutomationFlow(params) {
         // ==== TRACKLOOM ====
         await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
-        // Geo-block detection (safety net)
+        // Geo-block detection safety net
         const pageContent = await page.evaluate(() => document.body.innerText);
         if (pageContent.includes('not available for your country') || pageContent.includes('Offer not available for your country')) {
-            throw new Error('GEO_BLOCKED: Unexpected geo-block even on Indian IP.');
+            throw new Error('GEO_BLOCKED: Indian proxy not working. Please update proxy credentials.');
         }
 
         // Wait for inputs. Assuming standard form order: Name, Mobile, Email, Vendor
