@@ -260,7 +260,15 @@ async function runAutomationFlow(params) {
             '--no-first-run',
             '--no-zygote',
             '--single-process',
-            '--disable-extensions'
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--disable-translate',
+            '--hide-scrollbars',
+            '--mute-audio',
+            '--safebrowsing-disable-auto-update',
+            '--js-flags=--max-old-space-size=256'
         ];
 
         if (PROXY_SERVER) {
@@ -270,7 +278,8 @@ async function runAutomationFlow(params) {
         browser = await puppeteer.launch({
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
             headless: 'new',
-            args: launchArgs
+            args: launchArgs,
+            ignoreHTTPSErrors: true
         });
 
         const page = await browser.newPage();
@@ -545,6 +554,7 @@ async function runAutomationFlow(params) {
     } finally {
         if (browser) {
             await browser.close().catch(() => { });
+            console.log('Browser closed, RAM freed');
         }
         activeSessionsCount--;
     }
