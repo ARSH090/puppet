@@ -273,7 +273,7 @@ async function runAutomationFlow(params) {
         await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
         // Wait for inputs. Assuming standard form order: Name, Mobile, Email, Vendor
-        await page.waitForSelector('input', { timeout: 10000 });
+        await page.waitForSelector('input', { timeout: 30000 });
         const inputs = await page.$$('input');
 
         if (inputs.length >= 4) {
@@ -303,9 +303,22 @@ async function runAutomationFlow(params) {
 
         // ==== BAJAJ MOBILE ENTER ====
         // At this point we should be on Bajaj Finserv page
+        
+        // Handle potential Popups/Overlays
+        try {
+            await page.waitForSelector('.modal-close, .popup-close, #onetrust-accept-btn-handler', { timeout: 3000 });
+            await page.click('.modal-close, .popup-close, #onetrust-accept-btn-handler');
+        } catch (_) { }
+
         const telInputSelector = 'input[type="tel"]';
         // Give it some time to load the React app
-        await page.waitForSelector(telInputSelector, { timeout: 15000 });
+        try {
+            await page.waitForSelector(telInputSelector, { timeout: 30000 });
+        } catch (e) {
+            await page.screenshot({ path: 'debug.png', fullPage: true });
+            console.log('Page HTML at failure:', await page.content());
+            throw e;
+        }
 
         await page.click(telInputSelector, { clickCount: 3 });
         await page.keyboard.press('Backspace');
@@ -354,7 +367,7 @@ async function runAutomationFlow(params) {
 
         // ==== SUBMIT OTP 1 ====
         // Usually 6 boxes
-        await page.waitForSelector('input[maxlength="1"]', { timeout: 10000 });
+        await page.waitForSelector('input[maxlength="1"]', { timeout: 30000 });
         const otpInputs = await page.$$('input[maxlength="1"]');
 
         // Make sure we type strictly up to the available boxes (max 6)
@@ -464,7 +477,7 @@ async function runAutomationFlow(params) {
 
         // Submit OTP 2
         // Assuming the same 6 inputs might have remounted, refetch them
-        await page.waitForSelector('input[maxlength="1"]', { timeout: 10000 });
+        await page.waitForSelector('input[maxlength="1"]', { timeout: 30000 });
         const otp2Inputs = await page.$$('input[maxlength="1"]');
         for (let i = 0; i < Math.min(otp2Inputs.length, otp2.length); i++) {
             await otp2Inputs[i].type(otp2[i]);

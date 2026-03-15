@@ -1,4 +1,4 @@
-FROM node:18-slim
+FROM node:20-slim
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
