@@ -1,9 +1,10 @@
 run = "node server.js"
 entrypoint = "server.js"
 
-[nix]
-channel = "stable-23_11"
-
 [env]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
-PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
+PUPPETEER_EXECUTABLE_PATH = "/run/current-system/sw/bin/chromium"
+NODE_ENV = "production"
+
+[nix]
+channel = "stable-22_11"

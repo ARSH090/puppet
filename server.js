@@ -2,9 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require('@supabase/supabase/supabase-js');
 const axios = require('axios');
 const fs = require('fs');
+const os = require('os');
 const { execSync } = require('child_process');
 
 puppeteer.use(StealthPlugin());
@@ -14,7 +15,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const PORT = process.env.PORT || 3001;
+app.get('/memory', (req, res) => {
+    const used = process.memoryUsage();
+    const free = os.freemem() / 1024 / 1024;
+    res.json({
+        freeSystemMemoryMB: free.toFixed(0),
+        heapUsedMB: (used.heapUsed / 1024 / 1024).toFixed(0),
+        heapTotalMB: (used.heapTotal / 1024 / 1024).toFixed(0),
+        rssMB: (used.rss / 1024 / 1024).toFixed(0),
+        time: new Date().toISOString()
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
+});
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const FB_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
@@ -24,10 +41,23 @@ const PROXY_PASS = process.env.PROXY_PASS;
 
 // Initialize Supabase
 let supabase;
-if (SUPABASE_URL && SUPABASE_KEY) {
+try {
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+        throw new Error("Supabase credentials missing.");
+    }
     supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-} else {
-    console.warn("⚠️ Warning: Supabase credentials not found in environment.");
+    console.log("Supabase client initialized.");
+} catch (error) {
+    console.error("Supabase Init Error:", error.message);
+}
+
+// Memory Check Function
+function checkMemory() {
+    const freeMem = os.freemem() / 1024 / 1024;
+    console.log(`Free memory: ${freeMem.toFixed(0)}MB`);
+    if (freeMem < 150) {
+        throw new Error(`INSUFFICIENT_MEMORY: Only ${freeMem.toFixed(0)}MB free. Cannot safely launch Chrome.`);
+    }
 }
 
 // Track active sessions to limit concurrency on Render
@@ -161,59 +191,33 @@ async function typeDigitByDigit(page, selector, text) {
     }
 }
 
+const chromePaths = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/run/current-system/sw/bin/chromium',
+    '/run/current-system/sw/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/nix/var/nix/profiles/default/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/opt/google/chrome/chrome'
+].filter(Boolean);
+
+let chromePath = null;
+for (const p of chromePaths) {
+    if (fs.existsSync(p)) {
+        chromePath = p;
+        console.log(`✅ Chrome/Chromium found at: ${p}`);
+        break;
+    }
+}
+
+if (!chromePath) {
+    console.error('❌ Chrome NOT found — check replit.nix and system path');
+}
+
 function findChromeBinary() {
-    const { execSync } = require('child_process');
-    
-    // Try environment variable first
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-        console.log('Using PUPPETEER_EXECUTABLE_PATH:', process.env.PUPPETEER_EXECUTABLE_PATH);
-        return process.env.PUPPETEER_EXECUTABLE_PATH;
-    }
-
-    // Try all known paths
-    const paths = [
-        '/usr/bin/google-chrome-stable',
-        '/usr/bin/google-chrome',
-        '/usr/bin/chromium-browser',
-        '/usr/bin/chromium',
-        '/opt/google/chrome/chrome',
-        '/opt/google/chrome/google-chrome',
-        '/usr/local/bin/chromium',
-        '/usr/local/bin/google-chrome',
-    ];
-
-    for (const p of paths) {
-        if (fs.existsSync(p)) {
-            console.log('Chrome found at:', p);
-            return p;
-        }
-    }
-
-    // Try which command
-    try {
-        const result = execSync(
-            'which google-chrome-stable || which google-chrome || which chromium-browser || which chromium',
-            { encoding: 'utf8' }
-        ).trim().split('\n')[0];
-        if (result && fs.existsSync(result)) {
-            console.log('Chrome found via which:', result);
-            return result;
-        }
-    } catch(e) {}
-
-    // Last resort - find command
-    try {
-        const result = execSync(
-            'find /usr /opt -name "google-chrome-stable" -o -name "google-chrome" -o -name "chromium" 2>/dev/null | head -1',
-            { encoding: 'utf8' }
-        ).trim();
-        if (result && fs.existsSync(result)) {
-            console.log('Chrome found via find:', result);
-            return result;
-        }
-    } catch(e) {}
-
-    return null;
+    return chromePath;
 }
 
 // -----------------------------------------------------------------------------
@@ -251,24 +255,44 @@ async function runAutomationFlow(params) {
         await logActivity(messengerId, 'START', 'success', 'Automation started');
         await updateLead(messengerId, { status: 'processing', process_state: 'automation_started' });
 
-        // Launch Browser
+        // Launch Browser with Aggressive RAM Optimization
+        checkMemory();
+        
         const launchArgs = [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--no-first-run',
             '--no-zygote',
             '--single-process',
+            '--memory-pressure-off',
             '--disable-extensions',
             '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-breakpad',
+            '--disable-client-side-phishing-detection',
+            '--disable-component-update',
             '--disable-default-apps',
+            '--disable-domain-reliability',
+            '--disable-features=AudioServiceOutOfProcess',
+            '--disable-hang-monitor',
+            '--disable-ipc-flooding-protection',
+            '--disable-popup-blocking',
+            '--disable-print-preview',
+            '--disable-renderer-backgrounding',
             '--disable-sync',
             '--disable-translate',
+            '--disable-web-security',
             '--hide-scrollbars',
+            '--ignore-certificate-errors',
+            '--js-flags=--max-old-space-size=128',
+            '--metrics-recording-only',
             '--mute-audio',
+            '--no-default-browser-check',
+            '--no-first-run',
             '--safebrowsing-disable-auto-update',
-            '--js-flags=--max-old-space-size=256'
+            '--window-size=800,600'
         ];
 
         if (PROXY_SERVER) {
@@ -276,8 +300,9 @@ async function runAutomationFlow(params) {
         }
 
         browser = await puppeteer.launch({
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
+            executablePath: findChromeBinary() || process.env.PUPPETEER_EXECUTABLE_PATH,
             headless: 'new',
+            pipe: true, // Use pipe for efficiency
             args: launchArgs,
             ignoreHTTPSErrors: true
         });
@@ -553,8 +578,14 @@ async function runAutomationFlow(params) {
         }
     } finally {
         if (browser) {
-            await browser.close().catch(() => { });
-            console.log('Browser closed, RAM freed');
+            try {
+                await browser.close().catch(() => { });
+            } catch (e) {
+                // Force kill if close fails
+                browser.process()?.kill('SIGKILL');
+            }
+            browser = null;
+            console.log('✅ Browser closed, RAM freed');
         }
         activeSessionsCount--;
     }

@@ -1,28 +1,29 @@
 { pkgs }: {
   deps = [
-    pkgs.nodejs_20
-    pkgs.nodePackages.typescript-language-server
-    pkgs.yarn
-    pkgs.replitPackages.jest
+    pkgs.nodejs-20_x
     pkgs.chromium
-    pkgs.glib
     pkgs.nss
     pkgs.nspr
     pkgs.atk
-    pkgs.at-spi2-atk
     pkgs.cups
-    pkgs.libdrm
     pkgs.dbus
+    pkgs.expat
+    pkgs.libdrm
+    pkgs.libxcb
     pkgs.libxkbcommon
-    pkgs.mesa
     pkgs.pango
     pkgs.cairo
+    pkgs.xorg.libX11
     pkgs.xorg.libXcomposite
     pkgs.xorg.libXdamage
     pkgs.xorg.libXext
     pkgs.xorg.libXfixes
     pkgs.xorg.libXrandr
-    pkgs.xorg.libgbm
-    pkgs.expat
+    pkgs.xorg.libxshmfence
+    pkgs.xorg.libXScrnSaver
+    pkgs.alsa-lib
+    pkgs.at-spi2-atk
+    pkgs.at-spi2-core
+    pkgs.gtk3
   ];
 }
