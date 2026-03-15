@@ -5,6 +5,8 @@
     pkgs.nss
     pkgs.nspr
     pkgs.atk
+    pkgs.at-spi2-atk
+    pkgs.at-spi2-core
     pkgs.cups
     pkgs.dbus
     pkgs.expat
@@ -13,6 +15,9 @@
     pkgs.libxkbcommon
     pkgs.pango
     pkgs.cairo
+    pkgs.glib
+    pkgs.gtk3
+    pkgs.gdk-pixbuf
     pkgs.xorg.libX11
     pkgs.xorg.libXcomposite
     pkgs.xorg.libXdamage
@@ -21,9 +26,9 @@
     pkgs.xorg.libXrandr
     pkgs.xorg.libxshmfence
     pkgs.xorg.libXScrnSaver
+    pkgs.xorg.libXtst
     pkgs.alsa-lib
-    pkgs.at-spi2-atk
-    pkgs.at-spi2-core
-    pkgs.gtk3
+    pkgs.mesa
+    pkgs.libGL
   ];
 }

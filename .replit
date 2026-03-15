@@ -1,10 +1,13 @@
-run = "node server.js"
+run = "bash start.sh"
 entrypoint = "server.js"
 
 [env]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
-PUPPETEER_EXECUTABLE_PATH = "/run/current-system/sw/bin/chromium"
 NODE_ENV = "production"
 
 [nix]
-channel = "stable-22_11"
+channel = "stable-23_11"
+
+[deployment]
+run = ["sh", "-c", "bash start.sh"]
+deploymentTarget = "cloudrun"

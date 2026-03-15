@@ -32,6 +32,16 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
+// Prevent Replit from sleeping
+const REPLIT_URL = process.env.REPLIT_URL;
+if (REPLIT_URL) {
+    setInterval(() => {
+        require('https').get(REPLIT_URL, (res) => {
+            console.log(`💓 Keep-alive: ${res.statusCode}`);
+        }).on('error', () => { });
+    }, 4 * 60 * 1000);
+}
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const FB_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
@@ -191,6 +201,7 @@ async function typeDigitByDigit(page, selector, text) {
     }
 }
 
+// Chrome path detection
 const chromePaths = [
     process.env.PUPPETEER_EXECUTABLE_PATH,
     '/run/current-system/sw/bin/chromium',
@@ -198,26 +209,38 @@ const chromePaths = [
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
     '/nix/var/nix/profiles/default/bin/chromium',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/google-chrome',
-    '/opt/google/chrome/chrome'
+    '/home/runner/.cache/puppeteer/chrome/linux-119.0.6045.105/chrome-linux64/chrome'
 ].filter(Boolean);
 
-let chromePath = null;
+let CHROME_PATH = null;
 for (const p of chromePaths) {
     if (fs.existsSync(p)) {
-        chromePath = p;
-        console.log(`✅ Chrome/Chromium found at: ${p}`);
+        CHROME_PATH = p;
+        console.log(`✅ Chrome found at: ${p}`);
         break;
     }
 }
 
-if (!chromePath) {
-    console.error('❌ Chrome NOT found — check replit.nix and system path');
+// Deep search if not found
+if (!CHROME_PATH) {
+    try {
+        const result = execSync('find /nix -name "chromium" -type f 2>/dev/null | head -1')
+            .toString().trim();
+        if (result) {
+            CHROME_PATH = result;
+            console.log(`✅ Chrome found via deep search: ${result}`);
+        }
+    } catch (e) { }
+}
+
+if (!CHROME_PATH) {
+    console.error('❌ Chrome NOT found — automation will fail');
+} else {
+    console.log(`✅ Using Chrome: ${CHROME_PATH}`);
 }
 
 function findChromeBinary() {
-    return chromePath;
+    return CHROME_PATH;
 }
 
 // -----------------------------------------------------------------------------
@@ -265,34 +288,16 @@ async function runAutomationFlow(params) {
             '--disable-gpu',
             '--no-zygote',
             '--single-process',
-            '--memory-pressure-off',
             '--disable-extensions',
             '--disable-background-networking',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-breakpad',
-            '--disable-client-side-phishing-detection',
-            '--disable-component-update',
             '--disable-default-apps',
-            '--disable-domain-reliability',
-            '--disable-features=AudioServiceOutOfProcess',
-            '--disable-hang-monitor',
-            '--disable-ipc-flooding-protection',
-            '--disable-popup-blocking',
-            '--disable-print-preview',
-            '--disable-renderer-backgrounding',
             '--disable-sync',
             '--disable-translate',
-            '--disable-web-security',
             '--hide-scrollbars',
-            '--ignore-certificate-errors',
-            '--js-flags=--max-old-space-size=128',
-            '--metrics-recording-only',
             '--mute-audio',
-            '--no-default-browser-check',
-            '--no-first-run',
-            '--safebrowsing-disable-auto-update',
-            '--window-size=800,600'
+            '--js-flags=--max-old-space-size=256',
+            '--window-size=800,600',
+            '--ignore-certificate-errors'
         ];
 
         if (PROXY_SERVER) {
@@ -300,7 +305,7 @@ async function runAutomationFlow(params) {
         }
 
         browser = await puppeteer.launch({
-            executablePath: findChromeBinary() || process.env.PUPPETEER_EXECUTABLE_PATH,
+            executablePath: CHROME_PATH,
             headless: 'new',
             pipe: true, // Use pipe for efficiency
             args: launchArgs,
@@ -324,10 +329,11 @@ async function runAutomationFlow(params) {
         // ==== TRACKLOOM ====
         await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
-        // Geo-block detection safety net
+        // Geo-block detection
         const pageContent = await page.evaluate(() => document.body.innerText);
         if (pageContent.includes('not available for your country') || pageContent.includes('Offer not available for your country')) {
-            throw new Error('GEO_BLOCKED: Indian proxy not working. Please update proxy credentials.');
+            console.log('⚠️ Geo-block detected but continuing — Replit may have Indian IP');
+            throw new Error('GEO_BLOCKED: Try again — Replit IP may rotate to Indian IP');
         }
 
         // Wait for inputs. Assuming standard form order: Name, Mobile, Email, Vendor
