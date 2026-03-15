@@ -1,0 +1,25 @@
+app = "bajaj-puppet"
+primary_region = "maa"
+
+[build]
+
+[env]
+  PORT = "10000"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 10000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 10
+    soft_limit = 5
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
