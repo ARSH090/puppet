@@ -5,6 +5,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const fs = require('fs');
+const { execSync } = require('child_process');
 
 puppeteer.use(StealthPlugin());
 
@@ -158,16 +159,57 @@ async function typeDigitByDigit(page, selector, text) {
 }
 
 function findChromeBinary() {
+    const { execSync } = require('child_process');
+    
+    // Try environment variable first
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        console.log('Using PUPPETEER_EXECUTABLE_PATH:', process.env.PUPPETEER_EXECUTABLE_PATH);
+        return process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+
+    // Try all known paths
     const paths = [
-        process.env.PUPPETEER_EXECUTABLE_PATH,
         '/usr/bin/google-chrome-stable',
         '/usr/bin/google-chrome',
         '/usr/bin/chromium-browser',
-        '/usr/bin/chromium'
+        '/usr/bin/chromium',
+        '/opt/google/chrome/chrome',
+        '/opt/google/chrome/google-chrome',
+        '/usr/local/bin/chromium',
+        '/usr/local/bin/google-chrome',
     ];
+
     for (const p of paths) {
-        if (p && fs.existsSync(p)) return p;
+        if (fs.existsSync(p)) {
+            console.log('Chrome found at:', p);
+            return p;
+        }
     }
+
+    // Try which command
+    try {
+        const result = execSync(
+            'which google-chrome-stable || which google-chrome || which chromium-browser || which chromium',
+            { encoding: 'utf8' }
+        ).trim().split('\n')[0];
+        if (result && fs.existsSync(result)) {
+            console.log('Chrome found via which:', result);
+            return result;
+        }
+    } catch(e) {}
+
+    // Last resort - find command
+    try {
+        const result = execSync(
+            'find /usr /opt -name "google-chrome-stable" -o -name "google-chrome" -o -name "chromium" 2>/dev/null | head -1',
+            { encoding: 'utf8' }
+        ).trim();
+        if (result && fs.existsSync(result)) {
+            console.log('Chrome found via find:', result);
+            return result;
+        }
+    } catch(e) {}
+
     return null;
 }
 
@@ -476,13 +518,22 @@ async function runAutomationFlow(params) {
 // -----------------------------------------------------------------------------
 
 app.get('/health', (req, res) => {
+    let scanResult = '';
+    try {
+        scanResult = execSync(
+            'find /usr /opt /bin -name "google-chrome*" -o -name "chromium*" 2>/dev/null | head -10',
+            { encoding: 'utf8' }
+        ).trim();
+    } catch(e) { scanResult = 'scan failed: ' + e.message; }
+
     const chromePath = findChromeBinary();
-    res.json({ 
-        status: 'ok', 
+    res.json({
+        status: 'ok',
         chromeFound: !!chromePath,
-        chromePath: chromePath,
-        activeSessions: activeSessionsCount, 
-        timestamp: new Date().toISOString() 
+        chromePath: chromePath || 'not found',
+        chromeScan: scanResult,
+        activeSessions: activeSessionsCount,
+        time: new Date().toISOString()
     });
 });
 
@@ -543,6 +594,16 @@ app.post('/otp/submit', async (req, res) => {
 // -----------------------------------------------------------------------------
 
 app.listen(PORT, () => {
+    try {
+        const paths = execSync(
+            'find /usr /opt /home -name "chrome" -o -name "chromium" -o -name "google-chrome" -o -name "google-chrome-stable" 2>/dev/null | head -10',
+            { encoding: 'utf8' }
+        ).trim();
+        console.log('Chrome scan result:', paths);
+    } catch(e) {
+        console.log('Chrome scan failed:', e.message);
+    }
+
     console.log(`🤖 Bajaj Puppeteer Service running on port ${PORT}`);
     if (!process.env.SUPABASE_URL) {
         console.log("⚠️ WARNING: SUPABASE_URL not set.");
